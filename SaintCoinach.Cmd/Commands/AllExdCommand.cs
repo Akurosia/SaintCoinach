@@ -38,7 +38,11 @@ namespace SaintCoinach.Cmd.Commands {
             var failCount = 0;
             foreach (var name in filesToExport) {
                 var sheet = _Realm.GameData.GetSheet(name);
-                foreach(var lang in sheet.Header.AvailableLanguages) {
+                var oldLang = _Realm.GameData.ActiveLanguage;
+                foreach (var lang in sheet.Header.AvailableLanguages) {
+                    if (lang != Language.None) {
+                        _Realm.GameData.ActiveLanguage = lang;
+                    }
                     var code = lang.GetCode();
                     if (code.Length > 0)
                         code = "." + code;
@@ -51,13 +55,15 @@ namespace SaintCoinach.Cmd.Commands {
                         ExdHelper.SaveAsCsv(sheet, lang, target.FullName, false);
 
                         ++successCount;
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         OutputError("Export of {0} failed: {1}", name, e.Message);
                         try { if (target.Exists) { target.Delete(); } } catch { }
                         ++failCount;
                     }
+                    _Realm.GameData.ActiveLanguage = oldLang;
                 }
-                
+
             }
             OutputInformation("{0} files exported, {1} failed", successCount, failCount);
 
