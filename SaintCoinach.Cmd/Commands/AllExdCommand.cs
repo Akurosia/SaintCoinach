@@ -40,6 +40,7 @@ namespace SaintCoinach.Cmd.Commands {
                 var sheet = _Realm.GameData.GetSheet(name);
                 var oldLang = _Realm.GameData.ActiveLanguage;
                 foreach (var lang in sheet.Header.AvailableLanguages) {
+                    _Realm.GameData.ActiveLanguage = oldLang;
                     if (lang != Language.None) {
                         _Realm.GameData.ActiveLanguage = lang;
                     }
@@ -61,7 +62,6 @@ namespace SaintCoinach.Cmd.Commands {
                         try { if (target.Exists) { target.Delete(); } } catch { }
                         ++failCount;
                     }
-                    _Realm.GameData.ActiveLanguage = oldLang;
                 }
 
             }
