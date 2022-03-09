@@ -36,9 +36,9 @@ namespace SaintCoinach.Cmd.Commands {
 
             var successCount = 0;
             var failCount = 0;
+            var oldLang = _Realm.GameData.ActiveLanguage;
             foreach (var name in filesToExport) {
                 var sheet = _Realm.GameData.GetSheet(name);
-                var oldLang = _Realm.GameData.ActiveLanguage;
                 foreach (var lang in sheet.Header.AvailableLanguages) {
                     _Realm.GameData.ActiveLanguage = oldLang;
                     if (lang != Language.None) {
