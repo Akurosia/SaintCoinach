@@ -1,0 +1,12 @@
+{
+  "sheet": "MJIItemPouch",
+  "definitions": [
+    {
+      "name": "Item",
+      "converter": {
+        "type": "link",
+        "target": "Item"
+      }
+    }
+  ]
+}

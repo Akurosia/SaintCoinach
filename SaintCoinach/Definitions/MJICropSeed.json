@@ -1,0 +1,12 @@
+{
+  "sheet": "MJICropSeed",
+  "definitions": [
+    {
+      "name": "Item",
+      "converter": {
+        "type": "link",
+        "target": "Item"
+      }
+    }
+  ]
+}
