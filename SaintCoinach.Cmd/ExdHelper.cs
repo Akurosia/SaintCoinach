@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-
 namespace SaintCoinach.Cmd {
     using Ex;
     using Xiv;
@@ -50,6 +49,7 @@ namespace SaintCoinach.Cmd {
                         key = col.Name.Replace("{", ".").Replace("[", ".").Replace("}", "").Replace("]", "");
                     cols.Add(col.Index, key);
                 }
+                //Console.WriteLine(JsonConvert.SerializeObject(cols, Formatting.Indented));
 
                 var rows = new List<IEnumerable<Ex.IRow>>();
                 if (sheet.Header.Variant == 1) {
@@ -72,9 +72,9 @@ namespace SaintCoinach.Cmd {
                         string itemKey = row.Key.ToString();
                         if (sheet.Header.Variant != 1)
                             itemKey = ((Ex.Variant2.SubRow)row).FullKey;
-                        SetJsonKey(insert, "Key", itemKey);
+                        //SetJsonKey(insert, "Key", itemKey);
 
-                        foreach (KeyValuePair<int, string> item in cols) {
+                        foreach (KeyValuePair<int, string> item in cols.OrderBy(_ => _.Value)) {
                             int index = item.Key;
                             string key = item.Value;
                             if (key == "")
@@ -88,38 +88,51 @@ namespace SaintCoinach.Cmd {
                                 v = writeRaw ? multiRow.GetRaw(index, language) : multiRow[index, language];
 
                             if (v == null)
-                                continue;
+                                v = "";
                             SetJsonKey(insert, key, v.ToString());
                         }
-
                         items.Add(itemKey, insert);
                     }
                 }
-
-                s.WriteLine(JsonConvert.SerializeObject(items, cols.Count<=100? Formatting.Indented : Formatting.None));
+                s.WriteLine(JsonConvert.SerializeObject(items, Formatting.Indented));
             }
         }
 
         public static void SetJsonKey(Dictionary<string, object> dict, string path, string val) {
             var keys = path.Split('.');
             var toSet = dict;
-            for (int i = 0; i<keys.Length; i++) {
-                var key = keys[i];
-                if (i == keys.Length - 1) {
-                    toSet[key] = val;
-                } else {
-                    if (!toSet.ContainsKey(key))
-                        toSet.Add(key, new Dictionary<string, object>());
 
-                    if (toSet[key] is String) {
-                        var mod = new Dictionary<string, object>();
-                        mod.Add("Value", toSet[key]);
-                        toSet[key] = mod;
+            if (keys.Length == 1) {
+                var key = keys[0];
+                // This will avoid the removal of already existing dicts in cases of e.g. Map file
+                if (toSet.ContainsKey(key)) {
+                    var mod = (Dictionary<string, object>)toSet[key];
+                    mod.Add("Value", val);
+                    toSet[key] = mod;
+                } else {
+                    toSet[key] = val;
+                }
+            } else {
+                for (int i = 0; i<keys.Length; i++) {
+                    var key = keys[i];
+
+                    if (i == keys.Length - 1) {
+                        toSet[key] = val;
+                    } else {
+                        if (!toSet.ContainsKey(key))
+                            toSet.Add(key, new Dictionary<string, object>());
+
+                        if (toSet[key] is String) {
+                            var mod = new Dictionary<string, object>();
+                            mod.Add("Value", toSet[key]);
+                            toSet[key] = mod;
+                        }
+                        toSet = (Dictionary<string, object>)toSet[key];
                     }
-                    toSet = (Dictionary<string, object>)toSet[key];
                 }
             }
         }
+
 
         public static void WriteRows(StreamWriter s, ISheet sheet, Language language, IEnumerable<int> colIndices, bool writeRaw) {
             if (sheet.Header.Variant == 1)

@@ -60,12 +60,14 @@ namespace SaintCoinach.Cmd.Commands
             foreach (var name in filesToExport)
             {
                 currentCount++;
+                if (name.StartsWith("content/") || name.StartsWith("custom/") || name.StartsWith("cut_scene/") || name.StartsWith("dungeon/") || name.StartsWith("guild_order/") || name.StartsWith("leve/") || name.StartsWith("opening/") || name.StartsWith("quest/") || name.StartsWith("raid/") || name.StartsWith("shop/") || name.StartsWith("story/") || name.StartsWith("system/") || name.StartsWith("transport/") || name.StartsWith("warp/")) {continue;}
                 var sheet = _Realm.GameData.GetSheet(name);
 
                 // Loop through all available languages
                 foreach (var lang in sheet.Header.AvailableLanguages)
                 {
                     var code = lang.GetCode();
+                    if (code == "chs" || code == "ko") { continue; }
                     if (code.Length > 0)
                         code = "." + code;
 

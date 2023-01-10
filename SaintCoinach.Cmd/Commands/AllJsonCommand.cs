@@ -38,9 +38,11 @@ namespace SaintCoinach.Cmd.Commands {
             var failCount = 0;
             var oldLang = _Realm.GameData.ActiveLanguage;
             foreach (var name in filesToExport) {
+                if (name.StartsWith("content/") || name.StartsWith("custom/") || name.StartsWith("cut_scene/") || name.StartsWith("dungeon/") || name.StartsWith("guild_order/") || name.StartsWith("leve/") || name.StartsWith("opening/") || name.StartsWith("quest/") || name.StartsWith("raid/") || name.StartsWith("shop/") || name.StartsWith("story/") || name.StartsWith("system/") || name.StartsWith("transport/") || name.StartsWith("warp/")) {continue;}
                 var sheet = _Realm.GameData.GetSheet(name);
-                foreach(var lang in sheet.Header.AvailableLanguages) {
+                foreach (var lang in sheet.Header.AvailableLanguages) {
                     var code = lang.GetCode();
+                    if (code == "chs" || code == "ko") { continue; }
                     _Realm.GameData.ActiveLanguage = oldLang;
                     if (lang != Language.None) {
                         _Realm.GameData.ActiveLanguage = lang;
@@ -49,12 +51,9 @@ namespace SaintCoinach.Cmd.Commands {
                         code = "." + code;
                     var target = new FileInfo(Path.Combine(_Realm.GameVersion, string.Format(CsvFileFormat, name, code)));
                     try {
-
                         if (!target.Directory.Exists)
                             target.Directory.Create();
-
                         ExdHelper.SaveAsJson(sheet, lang, target.FullName, false);
-
                         ++successCount;
                     } catch (Exception e) {
                         OutputError("Export of {0} failed: {1}", name, e.Message);
@@ -62,10 +61,8 @@ namespace SaintCoinach.Cmd.Commands {
                         ++failCount;
                     }
                 }
-                
             }
             OutputInformation("{0} files exported, {1} failed", successCount, failCount);
-
             return true;
         }
     }

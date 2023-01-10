@@ -36,10 +36,17 @@ namespace SaintCoinach.Cmd.Commands {
 
             var successCount = 0;
             var failCount = 0;
+            var oldLang = _Realm.GameData.ActiveLanguage;
             foreach (var name in filesToExport) {
+                if (name.StartsWith("content/") || name.StartsWith("custom/") || name.StartsWith("cut_scene/") || name.StartsWith("dungeon/") || name.StartsWith("guild_order/") || name.StartsWith("leve/") || name.StartsWith("opening/") || name.StartsWith("quest/") || name.StartsWith("raid/") || name.StartsWith("shop/") || name.StartsWith("story/") || name.StartsWith("system/") || name.StartsWith("transport/") || name.StartsWith("warp/")) {continue;}
                 var sheet = _Realm.GameData.GetSheet(name);
                 foreach(var lang in sheet.Header.AvailableLanguages) {
                     var code = lang.GetCode();
+                    if (code == "chs" || code == "ko") { continue; }
+                    _Realm.GameData.ActiveLanguage = oldLang;
+                    if (lang != Language.None) {
+                        _Realm.GameData.ActiveLanguage = lang;
+                    }
                     if (code.Length > 0)
                         code = "." + code;
                     var target = new FileInfo(Path.Combine(_Realm.GameVersion, string.Format(CsvFileFormat, name, code)));
