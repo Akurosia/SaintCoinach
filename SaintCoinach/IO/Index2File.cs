@@ -11,7 +11,7 @@ namespace SaintCoinach.IO {
 
         public PackIdentifier PackId { get; private set; }
         public uint FileKey { get; private set; }
-        public uint Offset { get; private set; }
+        public long Offset { get; private set; }
 
         /// <summary>
         ///     In which .dat* file the data is located.
