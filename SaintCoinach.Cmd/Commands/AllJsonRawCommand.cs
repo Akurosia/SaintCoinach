@@ -10,18 +10,16 @@ using Tharga.Console.Commands.Base;
 
 #pragma warning disable CS1998
 
-namespace SaintCoinach.Cmd.Commands
-{
-    public class AllExdRawCommand : AsyncActionCommandBase
-    {
+namespace SaintCoinach.Cmd.Commands {
+    public class AllJsonRawCommand : AsyncActionCommandBase {
         private ARealmReversed _Realm;
 
         /// <summary>
         /// Setup the command
         /// </summary>
         /// <param name="realm"></param>
-        public AllExdRawCommand(ARealmReversed realm)
-            : base("allrawexd", "Export all data (default), or only specific data files, seperated by spaces; including all languages. No post-processing is applied to values.")
+        public AllJsonRawCommand(ARealmReversed realm)
+            : base("allrawjson", "Export all data (default), or only specific data files, as JSON-files; including all languages. No post-processing is applied to values.")
         {
             _Realm = realm;
         }
@@ -31,13 +29,12 @@ namespace SaintCoinach.Cmd.Commands
         /// </summary>
         /// <param name="paramList"></param>
         /// <returns></returns>
-        public override async Task InvokeAsync(string[] paramList)
-        {
+        public override async Task InvokeAsync(string[] paramList) {
             var versionPath = _Realm.GameVersion;
             if (paramList?.Contains("/UseDefinitionVersion") ?? false)
                 versionPath = _Realm.DefinitionVersion;
-            
-            const string CsvFileFormat = "raw-exd-all/{0}{1}.csv";
+
+            const string CsvFileFormat = "raw-json-all/{0}{1}.json";
 
             IEnumerable<string> filesToExport;
 
@@ -57,6 +54,7 @@ namespace SaintCoinach.Cmd.Commands
             foreach (var name in filesToExport)
             {
                 currentCount++;
+                if (name.StartsWith("content/") || name.StartsWith("custom/") || name.StartsWith("cut_scene/") || name.StartsWith("dungeon/") || name.StartsWith("guild_order/") || name.StartsWith("leve/") || name.StartsWith("opening/") || name.StartsWith("quest/") || name.StartsWith("raid/") || name.StartsWith("shop/") || name.StartsWith("story/") || name.StartsWith("system/") || name.StartsWith("transport/") || name.StartsWith("warp/")) {continue;}
                 var sheet = _Realm.GameData.GetSheet(name);
 
                 // Loop through all available languages
@@ -64,6 +62,7 @@ namespace SaintCoinach.Cmd.Commands
                 {
                     var code = lang.GetCode();
                     if (code == "chs" || code == "ko") { continue; }
+                    if (code == "chs" || code == "ko" || code == "tc") { continue; }
                     if (code.Length > 0)
                         code = "." + code;
 
@@ -76,7 +75,7 @@ namespace SaintCoinach.Cmd.Commands
 
                         // Save
                         OutputInformation($"[{currentCount}/{total}] Processing: {name} - Language: {lang.GetSuffix()}");
-                        ExdHelper.SaveAsCsv(sheet, lang, target.FullName, true);
+                        ExdHelper.SaveAsJson(sheet, lang, target.FullName, true);
                         ++successCount;
                     }
                     catch (Exception e)

@@ -14,16 +14,16 @@ using Tharga.Console.Commands.Base;
 #pragma warning disable CS1998
 
 namespace SaintCoinach.Cmd.Commands {
-    public class AllExdCommand : AsyncActionCommandBase {
+    public class AllJsonCommand : AsyncActionCommandBase {
         private ARealmReversed _Realm;
 
-        public AllExdCommand(ARealmReversed realm)
-            : base("allexd", "Export all data (default), or only specific data files, seperated by spaces; including all languages.") {
+        public AllJsonCommand(ARealmReversed realm)
+            : base("alljson", "Export all data (default), or only specific data files, as JSON-files; including all languages.") {
             _Realm = realm;
         }
 
         public override async Task InvokeAsync(string[] paramList) {
-            const string CsvFileFormat = "exd-all/{0}{1}.csv";
+            const string CsvFileFormat = "json-all/{0}{1}.json";
 
             IEnumerable<string> filesToExport;
 
@@ -36,10 +36,12 @@ namespace SaintCoinach.Cmd.Commands {
             var failCount = 0;
             var oldLang = _Realm.GameData.ActiveLanguage;
             foreach (var name in filesToExport) {
+                if (name.StartsWith("content/") || name.StartsWith("custom/") || name.StartsWith("cut_scene/") || name.StartsWith("dungeon/") || name.StartsWith("guild_order/") || name.StartsWith("leve/") || name.StartsWith("opening/") || name.StartsWith("quest/") || name.StartsWith("raid/") || name.StartsWith("shop/") || name.StartsWith("story/") || name.StartsWith("system/") || name.StartsWith("transport/") || name.StartsWith("warp/")) {continue;}
                 var sheet = _Realm.GameData.GetSheet(name);
-                foreach(var lang in sheet.Header.AvailableLanguages) {
+                foreach (var lang in sheet.Header.AvailableLanguages) {
                     var code = lang.GetCode();
                     if (code == "chs" || code == "ko") { continue; }
+                    if (code == "chs" || code == "ko" || code == "tc") { continue; }
                     _Realm.GameData.ActiveLanguage = oldLang;
                     if (lang != Language.None) {
                         _Realm.GameData.ActiveLanguage = lang;
@@ -50,7 +52,7 @@ namespace SaintCoinach.Cmd.Commands {
                     try {
                         if (!target.Directory.Exists)
                             target.Directory.Create();
-                        ExdHelper.SaveAsCsv(sheet, lang, target.FullName, false);
+                        ExdHelper.SaveAsJson(sheet, lang, target.FullName, false);
                         ++successCount;
                     } catch (Exception e) {
                         OutputError($"Export of {name} failed: {e.Message}");
@@ -58,7 +60,6 @@ namespace SaintCoinach.Cmd.Commands {
                         ++failCount;
                     }
                 }
-                
             }
             OutputInformation($"{successCount} files exported, {failCount} failed");
         }
