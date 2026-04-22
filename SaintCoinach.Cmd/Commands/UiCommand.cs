@@ -21,7 +21,7 @@ namespace SaintCoinach.Cmd.Commands {
         private ARealmReversed _Realm;
 
         public UiCommand(ARealmReversed realm)
-            : base("ui", "Export all, a single, or a range of UI icons.") {
+            : base("ui", "Export all, a single, or a range of UI icons as WebP.") {
             _Realm = realm;
         }
 
@@ -82,8 +82,8 @@ namespace SaintCoinach.Cmd.Commands {
                     var target = new FileInfo(Path.Combine(_Realm.GameVersion, file.Path));
                     if (!target.Directory.Exists)
                         target.Directory.Create();
-                    var pngPath = target.FullName.Substring(0, target.FullName.Length - target.Extension.Length) + ".png";
-                    img.Save(pngPath);
+                    var webpPath = target.FullName.Substring(0, target.FullName.Length - target.Extension.Length) + ImageExportHelper.WebpExtension;
+                    ImageExportHelper.SaveAsDropperWebp(img, webpPath);
 
                     return true;
                 } else {

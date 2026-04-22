@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -14,23 +13,20 @@ namespace SaintCoinach.Cmd.Commands {
         private ARealmReversed _Realm;
 
         public MapCommand(ARealmReversed realm)
-            : base("maps", "Export all map images.") {
+            : base("maps", "Export all map images as WebP.") {
             _Realm = realm;
         }
 
         public override async Task InvokeAsync(string[] paramList) {
-            var format = ImageFormat.Png;
             var rawFileNames = false;
 
             if (paramList.Length != 0) {
                 var parameters = paramList;
                 rawFileNames = parameters.Contains("raw");
-                if (parameters.Contains("jpg"))
-                    format = ImageFormat.Jpeg;
-                else if (paramList.Contains("png"))
-                    format = ImageFormat.Png;
-                else
-                    OutputError($"Invalid map format {paramList}");
+                if (parameters.Any(p => p != "raw" && p != "webp" && p != "png")) {
+                    OutputError($"Invalid map format {string.Join(", ", paramList)}");
+                    return;
+                }
             }
 
             var c = 0;
@@ -46,7 +42,7 @@ namespace SaintCoinach.Cmd.Commands {
                 var outPathSb = new StringBuilder("ui/map/");
                 if(rawFileNames) {
                     outPathSb.AppendFormat("{0}/{1}", map.Id.ToString().Split('/')[0], map.Id.ToString().Replace("/", "."));
-                    outPathSb.Append(FormatToExtension(format));
+                    outPathSb.Append(ImageExportHelper.WebpExtension);
                 } else {
                     var territoryName = map.TerritoryType?.Name?.ToString();
                     if (!string.IsNullOrEmpty(territoryName)) {
@@ -68,26 +64,17 @@ namespace SaintCoinach.Cmd.Commands {
                         outPathSb.AppendFormat(" - {0}", mapIndex);
                     }
                     fileSet[mapKey] = mapIndex + 1;
-                    outPathSb.Append(FormatToExtension(format));
+                    outPathSb.Append(ImageExportHelper.WebpExtension);
                 }
 
                 var outFile = new FileInfo(Path.Combine(_Realm.GameVersion, outPathSb.ToString()));
                 if (!outFile.Directory.Exists)
                     outFile.Directory.Create();
 
-                img.Save(outFile.FullName, format);
+                ImageExportHelper.SaveAsDropperWebp(img, outFile.FullName);
                 ++c;
             }
             OutputInformation($"{c} maps saved");
-        }
-        
-        static string FormatToExtension(ImageFormat format) {
-            if (format == ImageFormat.Png)
-                return ".png";
-            if (format == ImageFormat.Jpeg)
-                return ".jpg";
-
-            throw new NotImplementedException();
         }
 
         static string ToPathSafeString(string input, char invalidReplacement = '_') {
