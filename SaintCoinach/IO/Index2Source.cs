@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +9,8 @@ namespace SaintCoinach.IO {
     public partial class Index2Source : IPackSource {
         #region Fields
 
-        private readonly Dictionary<uint, WeakReference<File>> _Files =
-            new Dictionary<uint, WeakReference<File>>();
+        private readonly ConcurrentDictionary<uint, WeakReference<File>> _Files =
+            new ConcurrentDictionary<uint, WeakReference<File>>();
 
         private readonly Dictionary<string, uint> _FilePathMap = new Dictionary<string, uint>();
 
@@ -61,11 +62,14 @@ namespace SaintCoinach.IO {
                 return true;
 
             if (Index.Files.TryGetValue(hash, out var index)) {
-                value = FileFactory.Get(this.Pack, index);
-                if (_Files.ContainsKey(hash))
-                    _Files[hash].SetTarget(value);
-                else
-                    _Files.Add(hash, new WeakReference<File>(value));
+                var file = FileFactory.Get(this.Pack, index);
+                _Files.AddOrUpdate(hash,
+                    _ => new WeakReference<File>(file),
+                    (_, fileRef) => {
+                        fileRef.SetTarget(file);
+                        return fileRef;
+                    });
+                value = file;
                 return true;
             }
 
@@ -89,10 +93,12 @@ namespace SaintCoinach.IO {
 
             var index = Index.Files[hash];
             file = FileFactory.Get(this.Pack, index);
-            if (_Files.ContainsKey(hash))
-                _Files[hash].SetTarget(file);
-            else
-                _Files.Add(hash, new WeakReference<File>(file));
+            _Files.AddOrUpdate(hash,
+                _ => new WeakReference<File>(file),
+                (_, fileRef) => {
+                    fileRef.SetTarget(file);
+                    return fileRef;
+                });
             return file;
         }
 

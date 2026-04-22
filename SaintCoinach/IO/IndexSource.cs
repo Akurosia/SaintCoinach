@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +9,8 @@ namespace SaintCoinach.IO {
     public partial class IndexSource : IPackSource {
         #region Fields
 
-        private readonly Dictionary<uint, Directory> _Directories =
-            new Dictionary<uint, Directory>();
+        private readonly ConcurrentDictionary<uint, Directory> _Directories =
+            new ConcurrentDictionary<uint, Directory>();
 
         private readonly Dictionary<string, uint> _DirectoryPathMap = new Dictionary<string, uint>();
 
@@ -57,13 +58,7 @@ namespace SaintCoinach.IO {
         }
 
         public Directory GetDirectory(uint key) {
-            if (_Directories.TryGetValue(key, out var directory))
-                return directory;
-
-            var index = Index.Directories[key];
-            directory = new Directory(this.Pack, index);
-            _Directories.Add(key, directory);
-            return directory;
+            return _Directories.GetOrAdd(key, k => new Directory(this.Pack, Index.Directories[k]));
         }
 
         public bool TryGetDirectory(string path, out Directory directory) {
@@ -82,9 +77,8 @@ namespace SaintCoinach.IO {
             if (_Directories.TryGetValue(key, out directory))
                 return true;
 
-            if (Index.Directories.TryGetValue(key, out var index)) {
-                directory = new Directory(this.Pack, index);
-                _Directories.Add(key, directory);
+            if (Index.Directories.ContainsKey(key)) {
+                directory = GetDirectory(key);
                 return true;
             }
 

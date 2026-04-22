@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,7 +26,7 @@ namespace SaintCoinach.IO {
             new Dictionary<Tuple<Thread, byte>, WeakReference<Stream>>();
 
         private bool _KeepInMemory = false;
-        private Dictionary<int, byte[]> _Buffers = new Dictionary<int,byte[]>();
+        private ConcurrentDictionary<int, byte[]> _Buffers = new ConcurrentDictionary<int, byte[]>();
 
         #endregion
 
@@ -75,10 +76,8 @@ namespace SaintCoinach.IO {
 
 
             if (KeepInMemory) {
-                if (!_Buffers.ContainsKey(datFile)) {
-                    _Buffers.Add(datFile, IOFile.ReadAllBytes(fullPath));
-                }
-                stream = new MemoryStream(_Buffers[datFile], false);
+                var buffer = _Buffers.GetOrAdd(datFile, _ => IOFile.ReadAllBytes(fullPath));
+                stream = new MemoryStream(buffer, false);
             } else
                 stream = IOFile.OpenRead(fullPath);
 
