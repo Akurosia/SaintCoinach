@@ -214,13 +214,12 @@ namespace SaintCoinach {
         #region Shared
 
         private RelationDefinition ReadDefinition() {
-            var versionPath = Path.Combine("Definitions", "game.ver");
-            if (!File.Exists(versionPath))
-                throw new InvalidOperationException("Definitions\\game.ver must exist.");
+            const string definitionPath = "Definitions";
+            if (!Directory.Exists(definitionPath))
+                throw new InvalidOperationException("Definitions directory must exist.");
 
-            var version = File.ReadAllText(versionPath).Trim();
-            var def = new RelationDefinition() { Version = version };
-            foreach (var sheetFileName in Directory.EnumerateFiles("Definitions", "*.json")) {
+            var def = new RelationDefinition() { Version = GameVersion };
+            foreach (var sheetFileName in Directory.EnumerateFiles(definitionPath, "*.json")) {
                 var json = File.ReadAllText(Path.Combine(sheetFileName), Encoding.UTF8);
                 var obj = JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JObject>(json);
                 var sheetDef = SheetDefinition.FromJson(obj);
