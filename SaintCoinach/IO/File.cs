@@ -124,8 +124,23 @@ namespace SaintCoinach.IO {
         }
 
         private static void Inflate(byte[] buffer, Stream outStream) {
-            var unc = Ionic.Zlib.DeflateStream.UncompressBuffer(buffer);
-            outStream.Write(unc, 0, unc.Length);
+            try {
+                Inflate(buffer, outStream, compressed => new ZLibStream(compressed, CompressionMode.Decompress));
+            } catch (InvalidDataException) {
+                Inflate(buffer, outStream, compressed => new DeflateStream(compressed, CompressionMode.Decompress));
+            }
+        }
+
+        private static void Inflate(byte[] buffer, Stream outStream, Func<Stream, Stream> createInflater) {
+            using (var inflated = new MemoryStream()) {
+                using (var source = new MemoryStream(buffer))
+                using (var inflater = createInflater(source)) {
+                    inflater.CopyTo(inflated);
+                }
+
+                inflated.Position = 0;
+                inflated.CopyTo(outStream);
+            }
         }
 
         #endregion

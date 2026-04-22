@@ -7,23 +7,23 @@ using System.Threading.Tasks;
 namespace SaintCoinach.Graphics.Pcb {
     public class PcbBlockData {
         public struct VertexI16 {
-            ushort X;
-            ushort Y;
-            ushort Z;
+            public ushort X;
+            public ushort Y;
+            public ushort Z;
         };
         public struct IndexData {
-            byte Index1;
-            byte Index2;
-            byte Index3;
-            byte Unknown1;
-            byte Unknown2;
-            byte Unknown3;
-            byte Unknown4;
-            byte Unknown5;
-            byte Unknown6;
-            byte Unknown7;
-            byte Unknown8;
-            byte Unknown9;
+            public byte Index1;
+            public byte Index2;
+            public byte Index3;
+            public byte Unknown1;
+            public byte Unknown2;
+            public byte Unknown3;
+            public byte Unknown4;
+            public byte Unknown5;
+            public byte Unknown6;
+            public byte Unknown7;
+            public byte Unknown8;
+            public byte Unknown9;
         };
 
         public Vector3[] Vertices;

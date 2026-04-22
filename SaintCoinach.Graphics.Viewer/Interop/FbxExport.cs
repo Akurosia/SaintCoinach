@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,7 +24,6 @@ namespace SaintCoinach.Graphics.Viewer.Interop
                                                 string filename, int mode);
         }
 
-        [HandleProcessCorruptedStateExceptions]
         public static int ExportFbx(string fileName,
                                         Mesh[] ma,
                                         Skeleton skele,

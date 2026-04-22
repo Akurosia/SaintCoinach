@@ -78,7 +78,7 @@ namespace SaintCoinach.Graphics.Viewer.Interop {
                     } else
                         System.Threading.Thread.Sleep(5);
                 }
-            } catch (BadImageFormatException e) {
+            } catch (BadImageFormatException) {
                 var result = MessageBox.Show("Failed to load Havok interop library.\nPlease ensure that the 32-bit (x86) Visual C++ Redistributable is installed.\nWould you like to download it now?", "Havok interop error", MessageBoxButton.YesNo, MessageBoxImage.Error);
                 if (result == MessageBoxResult.Yes)
                 {

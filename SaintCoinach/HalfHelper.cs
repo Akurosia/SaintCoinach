@@ -6,7 +6,7 @@ namespace SaintCoinach {
         // Methods
         public static unsafe ushort Pack(float value) {
             var num5 = *((uint*)&value);
-            var num3 = (uint)((num5 & -2147483648) >> 0x10);
+            var num3 = (num5 & 0x80000000u) >> 0x10;
             var num = num5 & 0x7fffffff;
             if (num > 0x47ffefff) {
                 return (ushort)(num3 | 0x7fff);
@@ -25,16 +25,16 @@ namespace SaintCoinach {
 
         public static unsafe float Unpack(ushort value) {
             uint num3;
-            if ((value & -33792) == 0) {
+            if ((value & 0x7c00) == 0) {
                 if ((value & 0x3ff) != 0) {
-                    var num2 = 0xfffffff2;
+                    var num2 = 0xfffffff2u;
                     var num = (uint)(value & 0x3ff);
                     while ((num & 0x400) == 0) {
                         num2--;
                         num = num << 1;
                     }
-                    num &= 0xfffffbff;
-                    num3 = ((uint)(((value & 0x8000) << 0x10) | ((num2 + 0x7f) << 0x17))) | (num << 13);
+                    num &= 0xfffffbffu;
+                    num3 = (uint)((value & 0x8000) << 0x10) | ((num2 + 0x7fu) << 0x17) | (num << 13);
                 } else {
                     num3 = (uint)((value & 0x8000) << 0x10);
                 }

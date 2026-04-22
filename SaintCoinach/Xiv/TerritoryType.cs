@@ -8,15 +8,6 @@ namespace SaintCoinach.Xiv {
     ///     Class representing a territory (zone).
     /// </summary>
     public class TerritoryType : XivRow {
-        #region Static
-
-        /// <summary>
-        ///     Mappings of special weather rates.
-        /// </summary>
-        private static Dictionary<int, WeatherRate> WeatherGroups;
-
-        #endregion
-
         #region Fields
 
         /// <summary>
@@ -76,7 +67,7 @@ namespace SaintCoinach.Xiv {
                 var rateKey = AsInt32("WeatherRate");
                 try { 
                     return _WeatherRate = Sheet.Collection.GetSheet<WeatherRate>()[rateKey];
-                } catch (KeyNotFoundException notFound) {
+                } catch (KeyNotFoundException) {
 
                     // Weather Groups seems already deprecated
 

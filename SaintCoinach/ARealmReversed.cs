@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 
-using Ionic.Zip;
 using Newtonsoft.Json;
 using SaintCoinach.Ex;
 using SaintCoinach.Ex.Relational.Definition;
@@ -50,7 +50,7 @@ namespace SaintCoinach {
         private const string UpdateReportBinFile = "logs/report-{0}-{1}.bin";
 
         /// <summary>
-        ///     <see cref="Encoding" /> to use inside the <see cref="ZipFile" />.
+        ///     <see cref="Encoding" /> to use inside the state archive.
         /// </summary>
         private static readonly Encoding ZipEncoding = Encoding.UTF8;
 
@@ -136,9 +136,9 @@ namespace SaintCoinach {
         /// <summary>
         ///     Perform first-time setup on the archive.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> used for storage.</param>
+        /// <param name="zip"><see cref="ZipArchive" /> used for storage.</param>
         /// <returns>Returns the initial <see cref="RelationDefinition" /> object.</returns>
-        private void Setup(ZipFile zip) {
+        private void Setup(ZipArchive zip) {
             var def = _GameData.Definition;
             if (def.Version != GameVersion)
                 System.Diagnostics.Trace.WriteLine(string.Format("Definition and game version mismatch ({0} != {1})", def.Version, GameVersion));
@@ -148,7 +148,6 @@ namespace SaintCoinach {
             StorePacks(zip);
             UpdateVersion(zip);
 
-            zip.Save();
         }
 
         #endregion
@@ -202,8 +201,8 @@ namespace SaintCoinach {
             _StateFile = storeFile;
             _GameData.Definition = ReadDefinition();
 
-            using (var zipFile = new ZipFile(StateFile.FullName, ZipEncoding)) {
-                if (!zipFile.ContainsEntry(VersionFile))
+            using (var zipFile = OpenStateArchive(ZipArchiveMode.Update)) {
+                if (zipFile.GetEntry(VersionFile) == null)
                     Setup(zipFile);
             }
 
@@ -238,16 +237,17 @@ namespace SaintCoinach {
         }
 
         /// <summary>
-        ///     Deserialize a <see cref="RelationDefinition" /> file inside a <see cref="ZipFile" />.
+        ///     Deserialize a <see cref="RelationDefinition" /> file inside a <see cref="ZipArchive" />.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> to read from.</param>
+        /// <param name="zip"><see cref="ZipArchive" /> to read from.</param>
         /// <param name="version">Version of the definition to read.</param>
         /// <returns>Returns the read <see cref="RelationDefinition" />.</returns>
-        private static RelationDefinition ReadDefinition(ZipFile zip, string version) {
+        private static RelationDefinition ReadDefinition(ZipArchive zip, string version) {
             var def = new RelationDefinition() { Version = version };
-            var entries = zip.SelectEntries("*.json", Path.Combine(version, "Definitions"));
+            var definitionPath = ToZipPath(version, "Definitions") + "/";
+            var entries = zip.Entries.Where(e => e.FullName.StartsWith(definitionPath) && e.FullName.EndsWith(".json"));
             foreach (var entry in entries) {
-                using (var stream = entry.OpenReader())
+                using (var stream = entry.Open())
                 using (var reader = new StreamReader(stream)) {
                     var json = reader.ReadToEnd();
                     var obj = JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JObject>(json);
@@ -260,31 +260,31 @@ namespace SaintCoinach {
         /// <summary>
         ///     Store the current pack files in storage.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> to store the current packs in.</param>
-        private void StorePacks(ZipFile zip) {
+        /// <param name="zip"><see cref="ZipArchive" /> to store the current packs in.</param>
+        private void StorePacks(ZipArchive zip) {
             const string ExdPackPattern = "0a*.*";
 
             foreach (var file in Packs.DataDirectory.EnumerateFiles(ExdPackPattern, SearchOption.AllDirectories)) {
-                string targetDir = GameVersion + "/" + file.Directory.Name;
-                zip.UpdateFile(file.FullName, targetDir);
+                var target = ToZipPath(GameVersion, file.Directory.Name, file.Name);
+                UpdateFile(zip, target, file.FullName);
             }
         }
 
         /// <summary>
         ///     Updating the current version string in storage.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> to store the version string in.</param>
-        private void UpdateVersion(ZipFile zip) {
-            zip.UpdateEntry(VersionFile, GameVersion);
+        /// <param name="zip"><see cref="ZipArchive" /> to store the version string in.</param>
+        private void UpdateVersion(ZipArchive zip) {
+            UpdateTextEntry(zip, VersionFile, GameVersion);
         }
 
         /// <summary>
-        ///     Serialize a <see cref="RelationDefinition" /> into a <see cref="ZipFile" />.
+        ///     Serialize a <see cref="RelationDefinition" /> into a <see cref="ZipArchive" />.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> to write to.</param>
+        /// <param name="zip"><see cref="ZipArchive" /> to write to.</param>
         /// <param name="definition"><see cref="RelationDefinition" /> to store.</param>
         /// <param name="version">Version these definitions are for.</param>
-        private static void StoreDefinitionInZip(ZipFile zip, RelationDefinition definition) {
+        private static void StoreDefinitionInZip(ZipArchive zip, RelationDefinition definition) {
             // Since this method is only ever called to update the zip with the
             // lateset definitions, store these for both the given version *and*
             // root.
@@ -292,17 +292,17 @@ namespace SaintCoinach {
             // todo: prior to storage, delete everything under "Definitions" to prevent
             // dead sheets from resurrecting.
 
-            var versionBasePath = Path.Combine(definition.Version, "Definitions");
+            var versionBasePath = ToZipPath(definition.Version, "Definitions");
             foreach (var sheetDef in definition.SheetDefinitions) {
                 var json = SheetToJson(sheetDef);
                 var sheetFileName = sheetDef.Name + ".json";
-                zip.UpdateEntry(Path.Combine(versionBasePath, sheetFileName), json);
-                zip.UpdateEntry(Path.Combine("Definitions", sheetFileName), json);
+                UpdateTextEntry(zip, ToZipPath(versionBasePath, sheetFileName), json);
+                UpdateTextEntry(zip, ToZipPath("Definitions", sheetFileName), json);
             }
 
             // Store version in root definition path for quick copying.
-            var versionPath = Path.Combine("Definitions", "game.ver");
-            zip.UpdateEntry(versionPath, definition.Version);
+            var versionPath = ToZipPath("Definitions", "game.ver");
+            UpdateTextEntry(zip, versionPath, definition.Version);
         }
 
         private static void StoreDefinitionOnFilesystem(RelationDefinition definition, string basePath) {
@@ -321,19 +321,18 @@ namespace SaintCoinach {
         }
 
         /// <summary>
-        ///     Store a <see cref="UpdateReport" /> in a <see cref="ZipFile" />.
+        ///     Store a <see cref="UpdateReport" /> in a <see cref="ZipArchive" />.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> to write to.</param>
+        /// <param name="zip"><see cref="ZipArchive" /> to write to.</param>
         /// <param name="report"><see cref="UpdateReport" /> to store.</param>
-        private static void StoreReport(ZipFile zip, UpdateReport report) {
+        private static void StoreReport(ZipArchive zip, UpdateReport report) {
             var textTarget = string.Format(UpdateReportTextFile, report.PreviousVersion, report.UpdateVersion);
-            zip.UpdateEntry(textTarget, string.Join(Environment.NewLine, report.Changes.Select(_ => _.ToString())),
-                ZipEncoding);
+            UpdateTextEntry(zip, textTarget, string.Join(Environment.NewLine, report.Changes.Select(_ => _.ToString())));
 
             var jsonTarget = string.Format(UpdateReportJsonFile, report.PreviousVersion, report.UpdateVersion);
             var obj = report.ToJson();
             var json = JsonConvert.SerializeObject(obj, Formatting.Indented);
-            zip.UpdateEntry(jsonTarget, json);
+            UpdateTextEntry(zip, jsonTarget, json);
         }
 
         #endregion
@@ -361,7 +360,7 @@ namespace SaintCoinach {
             string tempPath = null;
             UpdateReport report;
             try {
-                using (var zip = new ZipFile(StateFile.FullName, ZipEncoding)) {
+                using (var zip = OpenStateArchive(ZipArchiveMode.Update)) {
                     tempPath = ExtractPacks(zip, previousVersion);
                     var previousPack = new PackCollection(Path.Combine(tempPath, previousVersion));
                     previousPack.GetPack(exdPackId).KeepInMemory = true;
@@ -399,7 +398,6 @@ namespace SaintCoinach {
 
                     StoreReport(zip, report);
                     UpdateVersion(zip);
-                    zip.Save();
 
                     GameData.Definition = definition;
                     GameData.Definition.Compile();
@@ -421,18 +419,71 @@ namespace SaintCoinach {
         /// <summary>
         ///     Extract the packs of a specific version from storage into a temporary directory.
         /// </summary>
-        /// <param name="zip"><see cref="ZipFile" /> to read from.</param>
+        /// <param name="zip"><see cref="ZipArchive" /> to read from.</param>
         /// <param name="previousVersion">Version of the packs to extract.</param>
         /// <returns>Returns the path to the directory containing the extracted packs.</returns>
-        private static string ExtractPacks(ZipFile zip, string previousVersion) {
+        private static string ExtractPacks(ZipArchive zip, string previousVersion) {
             var tempPath = Path.GetTempFileName();
             File.Delete(tempPath);
             Directory.CreateDirectory(tempPath);
 
-            foreach (var entry in zip.Entries.Where(e => e.FileName.StartsWith(previousVersion)))
-                    entry.Extract(tempPath);
+            var versionPath = previousVersion + "/";
+            foreach (var entry in zip.Entries.Where(e => e.FullName.StartsWith(versionPath) && !string.IsNullOrEmpty(e.Name)))
+                ExtractEntry(entry, tempPath);
 
             return tempPath;
+        }
+
+        private ZipArchive OpenStateArchive(ZipArchiveMode mode) {
+            if (StateFile.Directory != null && !StateFile.Directory.Exists)
+                StateFile.Directory.Create();
+
+            if (!StateFile.Exists) {
+                using (System.IO.Compression.ZipFile.Open(StateFile.FullName, ZipArchiveMode.Create)) {
+                }
+            }
+
+            return System.IO.Compression.ZipFile.Open(StateFile.FullName, mode, ZipEncoding);
+        }
+
+        private static void UpdateTextEntry(ZipArchive zip, string entryName, string content) {
+            var normalizedName = NormalizeZipPath(entryName);
+            zip.GetEntry(normalizedName)?.Delete();
+
+            var entry = zip.CreateEntry(normalizedName);
+            using (var stream = entry.Open())
+            using (var writer = new StreamWriter(stream, ZipEncoding)) {
+                writer.Write(content);
+            }
+        }
+
+        private static void UpdateFile(ZipArchive zip, string entryName, string filePath) {
+            var normalizedName = NormalizeZipPath(entryName);
+            zip.GetEntry(normalizedName)?.Delete();
+            zip.CreateEntryFromFile(filePath, normalizedName);
+        }
+
+        private static void ExtractEntry(ZipArchiveEntry entry, string destinationDirectory) {
+            var destinationPath = Path.GetFullPath(Path.Combine(destinationDirectory, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+            var destinationRoot = Path.GetFullPath(destinationDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var destinationRootWithSeparator = destinationRoot + Path.DirectorySeparatorChar;
+            if (!destinationPath.Equals(destinationRoot, StringComparison.OrdinalIgnoreCase) &&
+                !destinationPath.StartsWith(destinationRootWithSeparator, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Zip entry would extract outside target directory: {entry.FullName}");
+
+            var directory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            entry.ExtractToFile(destinationPath, true);
+        }
+
+        private static string ToZipPath(params string[] parts) {
+            return NormalizeZipPath(Path.Combine(parts));
+        }
+
+        private static string NormalizeZipPath(string path) {
+            return path.Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
         }
 
         #endregion

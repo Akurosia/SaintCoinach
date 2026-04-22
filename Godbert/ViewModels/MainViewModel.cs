@@ -36,7 +36,11 @@ namespace Godbert.ViewModels {
         #endregion
 
         #region Events
-        public event EventHandler DataGridChanged;
+        private EventHandler _DataGridChanged;
+        public event EventHandler DataGridChanged {
+            add { _DataGridChanged += value; }
+            remove { _DataGridChanged -= value; }
+        }
         #endregion
 
         #region Constructor

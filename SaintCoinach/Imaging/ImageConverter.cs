@@ -9,6 +9,7 @@ using DotSquish;
 
 namespace SaintCoinach.Imaging {
 
+#pragma warning disable CS0649
     struct DDS_PIXELFORMAT {
         public uint dwSize;
         public uint dwFlags;
@@ -47,6 +48,7 @@ namespace SaintCoinach.Imaging {
         public uint dwCaps4;
         public uint dwReserved11;
     };
+#pragma warning restore CS0649
 
     enum DDSD_ENUM : uint {
         DDSD_CAPS = 0x1,//Required in every.dds file. 	
@@ -189,7 +191,6 @@ namespace SaintCoinach.Imaging {
                 default:
                     System.Diagnostics.Debug.WriteLine("Texture format " + file.ImageHeader.Format.ToString() + " DDS export not supported!\n");
                     return null;
-                    break;
             }
 
             format.dwSize = 32;
