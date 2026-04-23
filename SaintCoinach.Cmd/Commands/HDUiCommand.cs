@@ -19,6 +19,7 @@ namespace SaintCoinach.Cmd.Commands {
         };
 
         private ARealmReversed _Realm;
+        private static readonly object ConsoleLock = new object();
 
         public HDUiCommand(ARealmReversed realm)
             : base("uiHD", "Export all, a single, or a range of HD UI icons as WebP.") {
@@ -55,8 +56,14 @@ namespace SaintCoinach.Cmd.Commands {
             }
 
             var count = 0;
+            var lastFolder = -1;
             for (int i = min; i <= max; ++i) {
                 try {
+                    var folder = i / 1000;
+                    if (folder != lastFolder) {
+                        WriteFolderProgress("UIHD", $"ui/icon/{folder:D3}000");
+                        lastFolder = folder;
+                    }
                     count += Process(i);
                 }
                 catch (Exception e) {
@@ -94,6 +101,15 @@ namespace SaintCoinach.Cmd.Commands {
                 }
             }
             return false;
+        }
+
+        private static void WriteFolderProgress(string prefix, string folder) {
+            lock (ConsoleLock) {
+                var oldColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"[{prefix}] {folder}");
+                Console.ForegroundColor = oldColor;
+            }
         }
     }
 }
