@@ -94,7 +94,48 @@ namespace SaintCoinach.Cmd.Commands {
                 }
             }
 
+            var filterResult = FilterRootUldFiles(outputRoot);
+            OutputInformation($"ULD filter complete: {filterResult.DefaultMoved} moved to default, {filterResult.UldDataMoved} moved to uld_data, {filterResult.AlreadyExistsMoved} moved to already_exists");
             OutputInformation($"ULD export complete: {exported} exported, {missing} missing, {skipped} skipped, {fallbackNames} fallback names");
+        }
+
+        private UldFilterResult FilterRootUldFiles(string outputRoot) {
+            var result = new UldFilterResult();
+            var img01Path = Path.Combine(outputRoot, "img01");
+            var defaultPath = Path.Combine(outputRoot, "default");
+            var uldDataPath = Path.Combine(outputRoot, "uld_data");
+            var alreadyExistsPath = Path.Combine(outputRoot, "already_exists");
+
+            Directory.CreateDirectory(defaultPath);
+            Directory.CreateDirectory(uldDataPath);
+
+            var img01Files = Directory.Exists(img01Path)
+                ? new HashSet<string>(
+                    Directory.EnumerateFiles(img01Path, "*", SearchOption.TopDirectoryOnly).Select(Path.GetFileName),
+                    StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var source in Directory.EnumerateFiles(outputRoot, "*", SearchOption.TopDirectoryOnly).OrderBy(p => p, StringComparer.OrdinalIgnoreCase)) {
+                var fileName = Path.GetFileName(source);
+                var primaryTargetFolder = img01Files.Contains(fileName) ? defaultPath : uldDataPath;
+                var primaryTarget = Path.Combine(primaryTargetFolder, fileName);
+
+                try {
+                    File.Move(source, primaryTarget);
+                    if (ReferenceEquals(primaryTargetFolder, defaultPath))
+                        result.DefaultMoved++;
+                    else
+                        result.UldDataMoved++;
+                }
+                catch (IOException) when (File.Exists(primaryTarget)) {
+                    Directory.CreateDirectory(alreadyExistsPath);
+                    var collisionTarget = GetAvailableCollisionPath(alreadyExistsPath, fileName);
+                    File.Move(source, collisionTarget);
+                    result.AlreadyExistsMoved++;
+                }
+            }
+
+            return result;
         }
 
         private List<UldExport> BuildExports(UldPathDatabase paths) {
@@ -327,6 +368,20 @@ namespace SaintCoinach.Cmd.Commands {
             return parts.Length == 0 ? outputRoot : Path.Combine(new[] { outputRoot }.Concat(parts).ToArray());
         }
 
+        private static string GetAvailableCollisionPath(string folder, string fileName) {
+            var path = Path.Combine(folder, fileName);
+            if (!File.Exists(path))
+                return path;
+
+            var name = Path.GetFileNameWithoutExtension(fileName);
+            var extension = Path.GetExtension(fileName);
+            for (var i = 1; ; i++) {
+                path = Path.Combine(folder, $"{name}_{i}{extension}");
+                if (!File.Exists(path))
+                    return path;
+            }
+        }
+
         private async Task<string> GetDefaultPathListAsync() {
             var path = Path.Combine(AppContext.BaseDirectory, DefaultPathListCacheName);
             if (IsFreshCache(path)) {
@@ -416,6 +471,12 @@ namespace SaintCoinach.Cmd.Commands {
             public string RelativePath { get; set; }
             public IO.File File { get; set; }
             public bool UsedFallbackName { get; set; }
+        }
+
+        private class UldFilterResult {
+            public int DefaultMoved { get; set; }
+            public int UldDataMoved { get; set; }
+            public int AlreadyExistsMoved { get; set; }
         }
 
         private static string GetRelativeFolderPath(string path) {
