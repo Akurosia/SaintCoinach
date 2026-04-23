@@ -22,7 +22,8 @@ namespace SaintCoinach.Cmd.Commands {
                 RunCommandAsync("ui", new UiCommand(_Realm)),
                 RunCommandAsync("uiHD", new HDUiCommand(_Realm)),
                 RunCommandAsync("maps", new MapCommand(_Realm)),
-                RunCommandAsync("bgm", new BgmCommand(_Realm))
+                RunCommandAsync("bgm", new BgmCommand(_Realm)),
+                RunCommandAsync("uld", new BgmCommand(_Realm))
             };
 
             await Task.WhenAll(tasks);

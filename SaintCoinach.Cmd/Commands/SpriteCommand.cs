@@ -89,7 +89,7 @@ namespace SaintCoinach.Cmd.Commands {
                             else
                                 AddUnique(group.HrOnly, file);
                         } else {
-                            var hr = AddHr(file);
+                            var hr = AddHr(category, file);
                             if (files.Contains(hr, StringComparer.OrdinalIgnoreCase))
                                 AddUnique(group.Both, hr);
                             else
@@ -306,7 +306,15 @@ namespace SaintCoinach.Cmd.Commands {
             return ext.Equals(".png", StringComparison.OrdinalIgnoreCase) || ext.Equals(".webp", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string AddHr(string filename) {
+        private static string AddHr(string category, string filename) {
+            if (category.Equals("uld", StringComparison.OrdinalIgnoreCase)) {
+                const string TexSuffix = ".tex";
+                var uldExt = Path.GetExtension(filename);
+                var stem = filename.Substring(0, filename.Length - uldExt.Length);
+                if (stem.EndsWith(TexSuffix, StringComparison.OrdinalIgnoreCase))
+                    return stem.Substring(0, stem.Length - TexSuffix.Length) + "_hr1" + TexSuffix + uldExt;
+            }
+
             var ext = Path.GetExtension(filename);
             return filename.Substring(0, filename.Length - ext.Length) + "_hr1" + ext;
         }
