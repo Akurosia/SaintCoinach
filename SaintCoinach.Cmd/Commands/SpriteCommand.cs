@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -103,7 +104,7 @@ namespace SaintCoinach.Cmd.Commands {
         }
 
         private List<SpriteEntry> BuildSprites(string sourceRoot, string outputRoot, Dictionary<string, IconGroup> icons) {
-            var entries = new List<SpriteEntry>();
+            var jobs = new List<SpriteBuildJob>();
             foreach (var category in Categories) {
                 var categoryPath = Path.Combine(sourceRoot, category);
                 if (!Directory.Exists(categoryPath))
@@ -113,14 +114,29 @@ namespace SaintCoinach.Cmd.Commands {
                     var groupName = Path.GetFileName(folder);
                     if (!icons.TryGetValue(groupName, out var group))
                         continue;
-                    entries.AddRange(BuildSpriteSet(outputRoot, category, folder, groupName, group, false));
+                    jobs.Add(new SpriteBuildJob(category, folder, groupName, group, false));
 
                     var hq = Path.Combine(folder, "hq");
                     if (Directory.Exists(hq))
-                        entries.AddRange(BuildSpriteSet(outputRoot, category, hq, groupName, group, true));
+                        jobs.Add(new SpriteBuildJob(category, hq, groupName, group, true));
                 }
             }
-            return entries;
+
+            var entries = new ConcurrentBag<SpriteEntry>();
+            var options = new ParallelOptions {
+                MaxDegreeOfParallelism = Math.Max(1, Math.Min(Environment.ProcessorCount, 4))
+            };
+
+            Parallel.ForEach(jobs, options, job => {
+                foreach (var entry in BuildSpriteSet(outputRoot, job.Category, job.Folder, job.GroupName, job.Group, job.Hq))
+                    entries.Add(entry);
+            });
+
+            return entries
+                .OrderBy(entry => entry.Group, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.IconId, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private List<SpriteEntry> BuildSpriteSet(string outputRoot, string category, string folder, string groupName, IconGroup group, bool hq) {
@@ -214,7 +230,7 @@ namespace SaintCoinach.Cmd.Commands {
                             if (rowTexts.Count == 0)
                                 continue;
                             foreach (var mediaColumn in media) {
-                                var icon = FormatIconId(Read(row, mediaColumn));
+                                var icon = FormatIconId(ReadRaw(row, mediaColumn));
                                 if (icon.Length == 0 || icon == "000000" || !wanted.Contains(icon))
                                     continue;
                                 foreach (var rowText in rowTexts) {
@@ -264,6 +280,11 @@ namespace SaintCoinach.Cmd.Commands {
 
         private static object Read(XivRow row, string column) {
             try { return row[column]; }
+            catch { return null; }
+        }
+
+        private static object ReadRaw(XivRow row, string column) {
+            try { return row.GetRaw(column); }
             catch { return null; }
         }
 
@@ -335,6 +356,22 @@ namespace SaintCoinach.Cmd.Commands {
             public string CssPath { get; set; }
             public int Width { get; set; }
             public int Height { get; set; }
+        }
+
+        private class SpriteBuildJob {
+            public SpriteBuildJob(string category, string folder, string groupName, IconGroup group, bool hq) {
+                Category = category;
+                Folder = folder;
+                GroupName = groupName;
+                Group = group;
+                Hq = hq;
+            }
+
+            public string Category { get; }
+            public string Folder { get; }
+            public string GroupName { get; }
+            public IconGroup Group { get; }
+            public bool Hq { get; }
         }
 
         private class IconTextLink {
