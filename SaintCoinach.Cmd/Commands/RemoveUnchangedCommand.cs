@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Tharga.Console.Commands.Base;
 
@@ -55,31 +56,43 @@ namespace SaintCoinach.Cmd.Commands {
 
             OutputInformation($"[RUF] Comparing {newFiles.Count} files");
 
-            var deleted = 0;
-            foreach (var pair in newFiles) {
-                if (!oldFiles.TryGetValue(pair.Key, out var oldPath))
-                    continue;
+            var candidates = newFiles
+                .Where(pair => oldFiles.ContainsKey(pair.Key))
+                .Select(pair => new CompareCandidate(pair.Key, oldFiles[pair.Key], pair.Value))
+                .ToList();
 
-                var newPath = pair.Value;
+            OutputInformation($"[RUF] {candidates.Count} files exist in both versions");
+
+            var deletedPaths = new ConcurrentBag<string>();
+            var errors = new ConcurrentBag<string>();
+            var options = new ParallelOptions {
+                MaxDegreeOfParallelism = Math.Max(1, Math.Min(Environment.ProcessorCount, 8))
+            };
+
+            Parallel.ForEach(candidates, options, candidate => {
                 try {
-                    var oldInfo = new FileInfo(oldPath);
-                    var newInfo = new FileInfo(newPath);
+                    var oldInfo = new FileInfo(candidate.OldPath);
+                    var newInfo = new FileInfo(candidate.NewPath);
                     if (!oldInfo.Exists || !newInfo.Exists || oldInfo.Length != newInfo.Length)
-                        continue;
+                        return;
 
-                    if (!Sha1Equals(oldPath, newPath))
-                        continue;
+                    if (!FilesEqual(candidate.OldPath, candidate.NewPath))
+                        return;
 
-                    File.Delete(newPath);
-                    OutputInformation($"[RUF] Removed duplicate: {newPath}");
-                    deleted++;
+                    File.Delete(candidate.NewPath);
+                    deletedPaths.Add(candidate.NewPath);
                 }
                 catch (Exception e) {
-                    OutputError($"[ERR] Failed comparing {pair.Key}: {e.Message}");
+                    errors.Add($"[ERR] Failed comparing {candidate.RelativePath}: {e.Message}");
                 }
-            }
+            });
 
-            return deleted;
+            foreach (var path in deletedPaths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                OutputInformation($"[RUF] Removed duplicate: {path}");
+            foreach (var error in errors.OrderBy(error => error, StringComparer.OrdinalIgnoreCase))
+                OutputError(error);
+
+            return deletedPaths.Count;
         }
 
         private int RemoveEmptyFolders(string path) {
@@ -112,14 +125,26 @@ namespace SaintCoinach.Cmd.Commands {
             return files;
         }
 
-        private static bool Sha1Equals(string firstPath, string secondPath) {
-            using var first = File.OpenRead(firstPath);
-            using var second = File.OpenRead(secondPath);
-            using var sha1 = SHA1.Create();
+        private static bool FilesEqual(string firstPath, string secondPath) {
+            const int bufferSize = 1024 * 1024;
 
-            var firstHash = sha1.ComputeHash(first);
-            var secondHash = sha1.ComputeHash(second);
-            return firstHash.SequenceEqual(secondHash);
+            using var first = new FileStream(firstPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, FileOptions.SequentialScan);
+            using var second = new FileStream(secondPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, FileOptions.SequentialScan);
+
+            var firstBuffer = new byte[bufferSize];
+            var secondBuffer = new byte[bufferSize];
+
+            while (true) {
+                var firstRead = first.Read(firstBuffer, 0, firstBuffer.Length);
+                var secondRead = second.Read(secondBuffer, 0, secondBuffer.Length);
+
+                if (firstRead != secondRead)
+                    return false;
+                if (firstRead == 0)
+                    return true;
+                if (!firstBuffer.AsSpan(0, firstRead).SequenceEqual(secondBuffer.AsSpan(0, secondRead)))
+                    return false;
+            }
         }
 
         private static string ResolvePath(string path) {
@@ -128,5 +153,16 @@ namespace SaintCoinach.Cmd.Commands {
             return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
         }
 
+        private class CompareCandidate {
+            public CompareCandidate(string relativePath, string oldPath, string newPath) {
+                RelativePath = relativePath;
+                OldPath = oldPath;
+                NewPath = newPath;
+            }
+
+            public string RelativePath { get; }
+            public string OldPath { get; }
+            public string NewPath { get; }
+        }
     }
 }
