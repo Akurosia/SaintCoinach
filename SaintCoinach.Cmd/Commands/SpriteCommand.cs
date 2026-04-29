@@ -36,12 +36,12 @@ namespace SaintCoinach.Cmd.Commands {
 
         public override async Task InvokeAsync(string[] paramList) {
             if (paramList.Length > 2) {
-                OutputError("Usage: sprite [input-dir] [output-dir]");
+                OutputError("Usage: sprite [output-dir] [input-dir]");
                 return;
             }
 
-            var sourceRoot = ResolvePath(paramList.Length >= 1 ? paramList[0] : Path.Combine(_Realm.GameVersion, "ui"));
-            var outputRoot = ResolvePath(paramList.Length >= 2 ? paramList[1] : Path.Combine(_Realm.GameVersion, "sprite"));
+            var outputRoot = ResolvePath(paramList.Length >= 1 ? paramList[0] : Path.Combine(_Realm.GameVersion, "sprite"));
+            var sourceRoot = ResolvePath(paramList.Length >= 2 ? paramList[1] : Path.Combine(_Realm.GameVersion, "ui"));
             Directory.CreateDirectory(Path.Combine(outputRoot, "css"));
             Directory.CreateDirectory(Path.Combine(outputRoot, "png"));
             Directory.CreateDirectory(Path.Combine(outputRoot, "html"));

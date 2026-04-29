@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SaintCoinach.Imaging;
 using Tharga.Console.Commands.Base;
 
 #pragma warning disable CS1998
@@ -38,8 +39,8 @@ namespace SaintCoinach.Cmd.Commands {
                     var target = new FileInfo(Path.Combine(_Realm.GameVersion, file.Path));
                     if (!target.Directory.Exists)
                         target.Directory.Create();
-                    var pngPath = target.FullName.Substring(0, target.FullName.Length - target.Extension.Length) + ".png";
-                    img.Save(pngPath);
+                    var webpPath = target.FullName.Substring(0, target.FullName.Length - target.Extension.Length) + ImageExportHelper.WebpExtension;
+                    ImageExportHelper.SaveAsDropperWebp(img, webpPath);
                         
                 } else
                     OutputError("File not found.");
